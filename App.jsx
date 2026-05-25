@@ -110,14 +110,14 @@ const hz=m=>440*Math.pow(2,(m-69)/12);
 function playMidi(midis,gap=0.1){unlock();const ctx=getCtx(),now=ctx.currentTime+0.04;midis.forEach((m,i)=>pluck(ctx,hz(m),now+i*gap));}
 
 // ── FRETBOARD DIAGRAM ─────────────────────────────────────────────────────
-function FretboardDiagram({rootNote,mode,wStart=1,nFrets=5,onTap}){
+function FretboardDiagram({rootNote,mode,wStart=1,nFrets=5,onTap,fill=true}){
   const FW=50,SH=26,L=24,T=22,DR=10;
   const W=L+nFrets*FW+8, H=T+5*SH+16;
   const sy=r=>T+r*SH, fx=c=>L+(c+0.5)*FW;
   const showNut=wStart===1;
   const deg=(si,fret)=>{const iv=((((OPEN_MIDI[si]+fret)%12+12)%12)-rootNote+12)%12;return mode.intervals.includes(iv)?mode.degMap[iv]:null;};
   return(
-    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{display:'block',touchAction:'manipulation'}}>
+    <svg viewBox={`0 0 ${W} ${H}`} {...(fill?{}:{width:W,height:H})} style={fill?{width:'100%',height:'auto',display:'block',touchAction:'manipulation'}:{display:'block',touchAction:'manipulation'}}>
       {Array.from({length:nFrets},(_,c)=>(
         <text key={c} x={fx(c)} y={T-8} fontSize={8} fill="#4a5568" textAnchor="middle">{wStart+c}</text>
       ))}
