@@ -174,30 +174,27 @@ function ScaleDots({mode}){
 }
 
 // ── FRETBOARD CONTROLS (shared) ───────────────────────────────────────────
-function FretNav({wStart,setWStart,rootNote,mode,showFull,onPlay}){
+function FretNav({wStart,setWStart,rootNote,mode,showFull}){
   return(
-    <div>
-      {showFull?(
-        <div style={{background:'#0c0b17',borderRadius:'8px',padding:'8px',overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
-          <FretboardDiagram rootNote={rootNote} mode={mode} wStart={1} nFrets={15} onTap={m=>playMidi([m])}/>
-          <div style={{fontSize:'9px',color:'#3a4050',textAlign:'center',marginTop:'3px'}}>← scroll →</div>
-        </div>
-      ):(
-        <div style={{background:'#0c0b17',borderRadius:'8px',padding:'8px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
-            <button onClick={()=>setWStart(w=>Math.max(1,w-1))} style={navBtn}>‹</button>
-            <div style={{flex:1,overflow:'hidden'}}><FretboardDiagram rootNote={rootNote} mode={mode} wStart={wStart} nFrets={5} onTap={m=>playMidi([m])}/></div>
-            <button onClick={()=>setWStart(w=>Math.min(12,w+1))} style={navBtn}>›</button>
-          </div>
-          <div style={{display:'flex',gap:'3px',justifyContent:'center',marginTop:'6px'}}>
+    <div style={{background:'#0c0b17',borderRadius:'8px',padding:'8px'}}>
+      <div style={{overflowX:showFull?'auto':'visible',WebkitOverflowScrolling:'touch'}}>
+        <FretboardDiagram rootNote={rootNote} mode={mode} wStart={showFull?1:wStart} nFrets={showFull?15:5} onTap={m=>playMidi([m])}/>
+      </div>
+      {!showFull&&(
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'6px'}}>
+          <button onClick={()=>setWStart(w=>Math.max(1,w-1))} style={navBtn}>‹</button>
+          <div style={{display:'flex',gap:'3px'}}>
             {[1,3,5,7,9,12].map(f=>(
-              <button key={f} onClick={()=>setWStart(f)} style={{width:'24px',height:'17px',background:wStart===f?mode.color:'transparent',
+              <button key={f} onClick={()=>setWStart(f)} style={{width:'26px',height:'18px',background:wStart===f?mode.color:'transparent',
                 border:`1px solid ${wStart===f?mode.color:'#2a2840'}`,borderRadius:'4px',cursor:'pointer',fontSize:'8px',color:wStart===f?'#111':'#555'}}>{f}</button>
             ))}
           </div>
-          <div style={{textAlign:'center',fontSize:'9px',color:'#3a4050',marginTop:'3px'}}>Frets {wStart}–{wStart+4} · tap dots to hear</div>
+          <button onClick={()=>setWStart(w=>Math.min(12,w+1))} style={navBtn}>›</button>
         </div>
       )}
+      <div style={{textAlign:'center',fontSize:'9px',color:'#3a4050',marginTop:'3px'}}>
+        {showFull?'← scroll →':`Frets ${wStart}–${wStart+4} · tap dots to hear`}
+      </div>
     </div>
   );
 }
@@ -310,11 +307,11 @@ function FretboardTab(){
     <div style={{padding:'12px',maxWidth:'520px',margin:'0 auto'}}>
       <div style={{marginBottom:'10px'}}>
         <div style={{fontSize:'9px',color:'#666',letterSpacing:'2px',textTransform:'uppercase',marginBottom:'5px'}}>Root Note</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:'3px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:'2px'}}>
           {NOTE_NAMES.map((n,i)=>(
-            <button key={i} onClick={()=>handleRoot(i)} style={{padding:'5px 7px',borderRadius:'7px',cursor:'pointer',fontSize:'12px',fontWeight:700,
+            <button key={i} onClick={()=>handleRoot(i)} style={{padding:'5px 2px',borderRadius:'6px',cursor:'pointer',fontSize:'11px',fontWeight:700,textAlign:'center',
               border:`1px solid ${i===root?'#ffd93d':'#2a2840'}`,background:i===root?'#ffd93d22':'transparent',
-              color:i===root?'#ffd93d':'#666',transition:'all .15s',minHeight:'32px'}}>{n}</button>
+              color:i===root?'#ffd93d':'#666',transition:'all .15s',minHeight:'30px'}}>{n}</button>
           ))}
         </div>
       </div>
@@ -396,11 +393,11 @@ function ScaleMapTab(){
           </div>
           <div style={{marginBottom:'10px'}}>
             <div style={{fontSize:'9px',color:'#666',textTransform:'uppercase',letterSpacing:'2px',marginBottom:'5px'}}>Chord Root</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:'3px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:'2px'}}>
               {NOTE_NAMES.map((n,i)=>(
-                <button key={i} onClick={()=>{setChordRoot(i);setWStart(getDefaultWin(i));setShowFull(false);}} style={{padding:'5px 7px',borderRadius:'7px',cursor:'pointer',fontSize:'12px',fontWeight:700,
+                <button key={i} onClick={()=>{setChordRoot(i);setWStart(getDefaultWin(i));setShowFull(false);}} style={{padding:'5px 2px',borderRadius:'6px',cursor:'pointer',fontSize:'11px',fontWeight:700,textAlign:'center',
                   border:`1px solid ${i===chordRoot?'#ffd93d':'#2a2840'}`,background:i===chordRoot?'#ffd93d22':'transparent',
-                  color:i===chordRoot?'#ffd93d':'#666',transition:'all .15s',minHeight:'32px'}}>{n}</button>
+                  color:i===chordRoot?'#ffd93d':'#666',transition:'all .15s',minHeight:'30px'}}>{n}</button>
               ))}
             </div>
           </div>
@@ -447,11 +444,11 @@ function ScaleMapTab(){
         <div>
           <div style={{marginBottom:'10px'}}>
             <div style={{fontSize:'9px',color:'#666',textTransform:'uppercase',letterSpacing:'2px',marginBottom:'5px'}}>Melodic Minor Key</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:'3px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:'2px'}}>
               {NOTE_NAMES.map((n,i)=>(
-                <button key={i} onClick={()=>setKeyRoot(i)} style={{padding:'5px 7px',borderRadius:'7px',cursor:'pointer',fontSize:'12px',fontWeight:700,
+                <button key={i} onClick={()=>setKeyRoot(i)} style={{padding:'5px 2px',borderRadius:'6px',cursor:'pointer',fontSize:'11px',fontWeight:700,textAlign:'center',
                   border:`1px solid ${i===keyRoot?'#a29bfe':'#2a2840'}`,background:i===keyRoot?'#a29bfe22':'transparent',
-                  color:i===keyRoot?'#a29bfe':'#666',transition:'all .15s',minHeight:'32px'}}>{n}</button>
+                  color:i===keyRoot?'#a29bfe':'#666',transition:'all .15s',minHeight:'30px'}}>{n}</button>
               ))}
             </div>
           </div>
