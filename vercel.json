@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "melodic-minor-trainer.vercel.app" }],
+      "destination": "https://fretworks.vercel.app/melodic-minor",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    { "source": "/melodic-minor/(.*)", "destination": "/$1" },
+    { "source": "/melodic-minor", "destination": "/" }
+  ]
+}

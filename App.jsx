@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { AppHeader, TabBar } from "@fretworks/design";
 
 // ════════════════════════════════════════════════════════════════════════
 //  MelodicMinor Trainer — the 7 modes of melodic minor, their shapes on the
@@ -200,7 +201,7 @@ function Fretboard({ cells, labelMode, root, sc=1, onTapNote }) {
   const lbl = c => labelMode === 'notes' ? NOTE_NAMES[pc(dotMidi(c))] : c.deg;
   const isRoot = c => c.deg === 'R';
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width={W*sc} height={H*sc} style={{ display:'block', maxWidth:'100%', height:'auto', userSelect:'none', WebkitUserSelect:'none' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width={W*sc} height={H*sc} style={{ display:'block', width:'auto', maxWidth:'100%', height:280, margin:'0 auto', userSelect:'none', WebkitUserSelect:'none' }}>
       {Array.from({length:6},(_,r)=><line key={'s'+r} x1={padL} y1={ry(r)} x2={padL+nf*FW} y2={ry(r)} stroke="#2a2840" strokeWidth={1.4}/>)}
       {Array.from({length:nf+1},(_,j)=>{const f=lo+j;const nut=f===0;return <line key={'f'+j} x1={fxl(f)} y1={ry(0)} x2={fxl(f)} y2={ry(5)} stroke={nut?'#cccccc':'#2a2840'} strokeWidth={nut?3:1.4}/>;})}
       {[3,5,7,9,12,15].filter(f=>f>=lo&&f<=hi).map(f=><circle key={'m'+f} cx={fx(f)} cy={ry(2)+RH/2} r={2.6} fill="#2a2840"/>)}
@@ -605,17 +606,19 @@ export default function App() {
     setMeta('viewport','width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover');
     setMeta('apple-mobile-web-app-capable','yes');
     setMeta('apple-mobile-web-app-status-bar-style','black-translucent');
-    setMeta('apple-mobile-web-app-title','MelodicMinor');
-    const manifest = { name:'MelodicMinor Trainer', short_name:'MelodicMinor', description:'The 7 modes of melodic minor — shapes, chords, and drills.', start_url:'.', display:'standalone', orientation:'portrait', background_color:'#0f0e17', theme_color:'#0f0e17', icons:[{src:i180,sizes:'180x180',type:'image/png'},{src:i512,sizes:'512x512',type:'image/png'}] };
-    const blob = new Blob([JSON.stringify(manifest)],{type:'application/json'}); const murl = URL.createObjectURL(blob);
-    let mlink = document.querySelector('link[rel="manifest"]'); if(!mlink){mlink=document.createElement('link');mlink.rel='manifest';document.head.appendChild(mlink);} mlink.href = murl;
+    setMeta('apple-mobile-web-app-title','Fretworks');
+    // Single PWA: reference the unified shell manifest (one manifest per origin)
+    // instead of generating a competing per-app manifest.
+    let mlink = document.querySelector('link[rel="manifest"]'); if(!mlink){mlink=document.createElement('link');mlink.rel='manifest';document.head.appendChild(mlink);} mlink.href = '/manifest.webmanifest';
     window.scrollTo(0,0);
     const lock = () => { if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0,0); };
     window.addEventListener('scroll', lock, { passive:true });
-    return () => { document.head.removeChild(style); window.removeEventListener('scroll', lock); URL.revokeObjectURL(murl); };
+    return () => { document.head.removeChild(style); window.removeEventListener('scroll', lock); };
   }, []);
 
   const goMode = (id) => { setModeId(id); setTab('fretboard'); if(scrollRef.current) scrollRef.current.scrollTop=0; };
+
+  const CW = 600; // centered content max-width (matches ChordTrainer)
 
   const TABS = [
     {id:'modes',label:'Modes',icon:'🎼'},
@@ -626,41 +629,30 @@ export default function App() {
   ];
 
   return (
-    <div style={{ background:'#08080d', height:'100dvh', display:'flex', justifyContent:'center' }}>
-    <div style={{ background:'#0f0e17', height:'100dvh', width:'100%', maxWidth:430, boxSizing:'border-box', borderLeft:'1px solid #1a1928', borderRight:'1px solid #1a1928', display:'flex', flexDirection:'column', color:'#fffffe', fontFamily:"'Segoe UI',system-ui,sans-serif", WebkitFontSmoothing:'antialiased', paddingTop:'env(safe-area-inset-top)' }}>
-      {/* header */}
-      <div style={{ padding:'10px 12px', borderBottom:'1px solid #1a1928', display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ display:'flex', flexDirection:'column' }}>
-          <div style={{ fontSize:16, fontWeight:900, lineHeight:1.1 }}>🎼 <span style={{ color:'#74b9ff' }}>Melodic</span><span style={{ color:'#ffd93d' }}>Minor</span></div>
-          <div style={{ fontSize:9, color:'#555', letterSpacing:'1px', paddingLeft:22 }}>jazz guitar toolbox</div>
-        </div>
-        <div style={{ marginLeft:'auto' }}>
-          <button onClick={()=>setLabelMode(m=>m==='degrees'?'notes':'degrees')} style={{ padding:'7px 12px', borderRadius:9, cursor:'pointer', fontSize:11, fontWeight:700, border:`2px solid ${labelMode==='degrees'?'#ffd93d':'#555'}`, background:labelMode==='degrees'?'#ffd93d':'transparent', color:labelMode==='degrees'?'#111':'#bbb', minHeight:36, whiteSpace:'nowrap', touchAction:'manipulation' }}>
-            {labelMode==='degrees'?'✦ Degrees':'Note names'}
-          </button>
-        </div>
-      </div>
+    <div style={{ background:'#0f0e17', height:'100dvh', width:'100%', boxSizing:'border-box', display:'flex', flexDirection:'column', color:'#fffffe', fontFamily:"var(--font-body)", WebkitFontSmoothing:'antialiased', paddingTop:'env(safe-area-inset-top)' }}>
+      <AppHeader toolKey="mm">
+        <button className={`fw-header-btn${labelMode==='degrees'?' is-on':''}`} onClick={()=>setLabelMode(m=>m==='degrees'?'notes':'degrees')}>
+          {labelMode==='degrees'?'✦ Degrees':'Note names'}
+        </button>
+      </AppHeader>
 
-      {/* root selector */}
-      <div style={{ padding:'8px 10px', borderBottom:'1px solid #1a1928' }}>
+      <TabBar toolKey="mm" tabs={TABS} active={tab} onChange={(id)=>{setTab(id); if(scrollRef.current)scrollRef.current.scrollTop=0;}} />
+
+      {/* root selector — below the tabs, full-bleed border, centered inner */}
+      <div style={{ borderBottom:'1px solid #1a1928' }}>
+       <div style={{ padding:'8px 10px', maxWidth:CW, margin:'0 auto' }}>
         <div style={{ fontSize:9, color:'#666', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:6 }}>Root · <span style={{color:'#74b9ff'}}>{NOTE_NAMES[root]} melodic minor</span></div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
           {NOTE_NAMES.map((n,i)=>(
             <button key={i} onClick={()=>setRoot(i)} style={{ padding:'7px 0', borderRadius:6, fontSize:11, fontWeight:800, cursor:'pointer', minHeight:34, border:`1px solid ${root===i?'#74b9ff':'#2a2840'}`, background:root===i?'#74b9ff':'transparent', color:root===i?'#06283f':'#999', touchAction:'manipulation' }}>{n}</button>
           ))}
         </div>
+       </div>
       </div>
 
-      {/* tabs */}
-      <div style={{ display:'flex', borderBottom:'1px solid #1a1928' }}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>{setTab(t.id); if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{ flex:1, padding:'11px 4px', background:'transparent', border:'none', cursor:'pointer', fontSize:10, fontWeight:700, color:tab===t.id?'#74b9ff':'#888', borderBottom:tab===t.id?'2px solid #74b9ff':'2px solid transparent', minHeight:44, touchAction:'manipulation' }}>{t.icon}<br/>{t.label}</button>
-        ))}
-      </div>
-
-      {/* content */}
+      {/* content — centered inner */}
       <div ref={scrollRef} style={{ flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehaviorY:'none' }}>
-        <div style={{ paddingBottom:'max(80px,env(safe-area-inset-bottom))' }}>
+        <div style={{ maxWidth:CW, margin:'0 auto', paddingBottom:'max(80px,env(safe-area-inset-bottom))' }}>
           {tab==='modes' && <ModesTab root={root} labelMode={labelMode} onPickMode={goMode} />}
           {tab==='fretboard' && <FretboardTab root={root} labelMode={labelMode} modeId={modeId} setModeId={setModeId} />}
           {tab==='map' && <ScaleMapTab root={root} onPickMode={goMode} />}
@@ -670,7 +662,6 @@ export default function App() {
       </div>
 
       <BannerStack />
-    </div>
     </div>
   );
 }
