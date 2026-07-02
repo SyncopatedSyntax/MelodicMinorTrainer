@@ -70,6 +70,13 @@ transposition for you — the player works out the parent key mentally. Don't
 build a "live transpose" feature without checking whether that changes the
 pedagogy here (the rules are meant to be memorised, not looked up).
 
+## Audio
+iOS silent-switch bypass: the toolbox-standard **two-layer fix** (audioSession
+'playback' on iOS 16.4+, plus a looping silent `<audio>` fallback for older
+iOS) sits at the top of the audio block; every play path routes through
+`playMidis() → unlockAudio()`. See root `CLAUDE.md → Audio`; reference
+implementation in `Chord-Trainer/App.jsx`. Don't regress to a fire-once MP3.
+
 ## Not built yet
 - **No spaced repetition.** Every visit to Modes/Fretboard/Quiz is fresh —
   no `nextDue`/`interval` scheduling, no per-card history. `localStorage` is
