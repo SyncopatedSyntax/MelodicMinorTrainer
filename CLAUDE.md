@@ -64,9 +64,22 @@ end user: Zak.
   Full-neck view (too many roots across 16 frets for a clean span). All
   scale/shape playback uses a 0.22s note gap (slower, deliberate pace so
   individual notes are distinguishable — not the same speed as a strum).
-- **Scale Map** 🗺️ — each of the 7 modes' typical chord across diatonic
-  degrees i–vii with its jazz rule; "See on neck" jumps to that mode on
-  Fretboard.
+- **Scale Map** 🗺️ — the 7 diatonic 7th chords of melodic minor (i m(maj7),
+  ii m7, ♭III maj7♯5, IV7, V7, vi ø, vii ø) with each mode's jazz rule. Tap a
+  card to reveal **how to play the chord**: a compact 4-note grip pulsing
+  inside its scale position, a **▶ Play chord** button, and **"See on neck"**
+  (jumps to that mode + the chord's root on Fretboard). Uses the shared
+  `Fretboard` with a new `highlightCells` prop — matching {s,f} dots pulse,
+  the rest of the scale dims. Respects the Degrees/Notes header toggle
+  (`labelMode` is threaded through). The grips reproduce Zak's melodic-minor
+  chord chart (`CHORD_MAP` + `chartChordVoicing()`): **root on the 5th (A)
+  string**, other tones on D/G/B, outer strings unused — derived from the
+  verified scale (not hand-transcribed), so they can't go out of key.
+  `CHORD_MAP.tones` are labelled in each **mode's** own degree vocabulary
+  (the box is built on the chord root), so vii's ♭3/♭5 read as ♯9/♯11 — the
+  altered scale's spelling of the same Aø pitches. **ii uses a natural 5**
+  (a plain m7); the chart draws a ♭5 there, but that note is out of the key,
+  so we correct it (the chart's ii⁻7 label agrees).
 - **Quiz** 🎯 — 7 hardcoded mode-application questions; shuffle, answer,
   grade yourself. No persistence — every attempt is a fresh shuffle.
 - **Guide** 📖 — collapsible help sections on mode names, intervals, usage,

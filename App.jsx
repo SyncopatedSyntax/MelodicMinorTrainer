@@ -158,6 +158,77 @@ function getRootSpans(cells) {
   return spans;
 }
 
+// Try to fit every tone in `tones` onto its own string within `cells` (one
+// note per required tone, one string per note — a real fingerable chord).
+// Brute-forces every combination (small: <=6 tones, <=3 candidates each) and
+// keeps the one with the smallest fret stretch, breaking ties toward a
+// contiguous run of strings (playable), then the narrowest string span.
+// Returns null if no clash-free combo exists for this exact tone set.
+function findVoicing(cells, tones) {
+  const byTone = tones.map(t => cells.filter(c => c.deg === t));
+  if (byTone.some(arr => arr.length === 0)) return null;
+  let best = null, bestScore = Infinity;
+  const n = byTone.length, combo = new Array(n);
+  (function rec(i, used) {
+    if (i === n) {
+      const frets = combo.map(c => c.f), strs = combo.map(c => c.s);
+      const fretSpan = Math.max(...frets) - Math.min(...frets);
+      const strSpan = Math.max(...strs) - Math.min(...strs);
+      const gaps = strSpan + 1 - n; // 0 = fully contiguous strings used
+      const score = fretSpan * 1000 + gaps * 10 + strSpan;
+      if (score < bestScore) { bestScore = score; best = combo.slice(); }
+      return;
+    }
+    for (const cell of byTone[i]) {
+      if (used.has(cell.s)) continue;
+      combo[i] = cell; used.add(cell.s);
+      rec(i + 1, used);
+      used.delete(cell.s);
+    }
+  })(0, new Set());
+  return best;
+}
+// Pick ONE practical voicing of a chord out of a scale-box's cells — same
+// "most compact placement" idea as Triad Trainer's placeVoicing(), just
+// searched instead of hardcoded. A single ~5-fret box doesn't always spread
+// every scale degree across enough distinct strings to fit every tone at
+// once (e.g. a 6-tone altered chord can need 5 tones on just 4 available
+// strings) — exactly why nobody actually frets every alt-scale tension as one
+// chord. So `tones` should be ordered most-essential-first; when the full set
+// won't fit, this drops tones off the END (the most optional ones) until a
+// real, playable subset fits, down to a floor of 3 notes.
+function pickChordVoicing(cells, tones) {
+  for (let n = tones.length; n >= Math.min(3, tones.length); n--) {
+    const found = findVoicing(cells, tones.slice(0, n));
+    if (found) return found;
+  }
+  return null;
+}
+
+// Reference-chart-style Scale Map voicing (see Zak's melodic-minor chord chart):
+// the root sits on the **5th (A) string**, the other three chord tones on the
+// D/G/B strings, low-E + high-e unused — the standard movable grips. Derived
+// from the verified scale (not hand-transcribed off the JPEG), so it can't go
+// out of key. `tones` are labelled in the CHORD's own mode vocabulary (the box
+// is built on the chord root), so e.g. the vii half-dim reads R #9 #11 b7 —
+// same pitches as R b3 b5 b7, just the altered scale's spelling. Returns the
+// display window's scale cells plus the 4 cells to pulse.
+function chartChordVoicing(modeId, cr, tones) {
+  let rootFret = ((cr - OPEN_MIDI[1]) % 12 + 12) % 12;
+  if (rootFret === 0) rootFret = 12;                 // avoid the open A string
+  // wide search window so the picker can reach every tone; picker input is the
+  // middle four strings only, root pinned to the A string so it lands in the
+  // bass like the chart (not doubled higher up).
+  const search = getFullNeck(modeId, cr, Math.max(0, rootFret - 1), rootFret + 6);
+  const pick = search.filter(c => c.s >= 1 && c.s <= 4 && (c.deg !== 'R' || c.s === 1));
+  const voicing = pickChordVoicing(pick, tones) || pick.filter(c => tones.includes(c.deg));
+  // display is a tight scale window around the chosen grip (a proper position),
+  // not the whole search span — keeps the diagram a compact, readable box.
+  const vf = voicing.map(c => c.f);
+  const display = getFullNeck(modeId, cr, Math.max(0, Math.min(...vf) - 1), Math.max(...vf) + 1);
+  return { display, voicing };
+}
+
 // ── Audio (Web Audio pluck) ──────────────────────────────────────────────
 let _ctx = null, _unlocked = false;
 // ── iOS silent-switch bypass (toolbox standard, see root CLAUDE.md → Audio) ──
@@ -241,8 +312,15 @@ const shuffle = a => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Mat
 // ════════════════════════════════════════════════════════════════════════
 
 // Horizontal fretboard: high e on top, low E bottom, frets L->R.
-function Fretboard({ cells, labelMode, root, sc=1, onTapNote }) {
+// highlightCells: optional array of exact {s,f} dots (e.g. one chosen chord
+// voicing) — those pulse and everything else dims, so a chord reads clearly
+// inside the full scale shape without lighting up every duplicate occurrence
+// of its notes. Omitted entirely elsewhere (Fretboard tab), so normal scale
+// browsing is unaffected.
+function Fretboard({ cells, labelMode, root, sc=1, onTapNote, highlightCells }) {
   if (!cells.length) return null;
+  const hlKey = highlightCells && new Set(highlightCells.map(h => h.s + '_' + h.f));
+  const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fs = cells.map(c => c.f);
   let lo = Math.max(0, Math.min(...fs) - 1), hi = Math.max(...fs) + 1;
   const FW=36, RH=27, padL=22, padT=14, padB=20, padR=10, nf=hi-lo+1;
@@ -258,11 +336,18 @@ function Fretboard({ cells, labelMode, root, sc=1, onTapNote }) {
       {[3,5,7,9,12,15].filter(f=>f>=lo&&f<=hi).map(f=><circle key={'m'+f} cx={fx(f)} cy={ry(2)+RH/2} r={2.6} fill="#2a2840"/>)}
       {STR_LABELS.map((s,r)=><text key={'l'+r} x={6} y={ry(5-r)+3.5} fontSize={10} fill="#777" fontFamily="monospace">{STR_LABELS[5-r]}</text>)}
       {Array.from({length:nf},(_,j)=>{const f=lo+j;if(f===0)return null;return <text key={'n'+j} x={fx(f)} y={H-6} fontSize={9} fill="#666" textAnchor="middle" fontFamily="monospace">{f}</text>;})}
-      {cells.map((c,i)=>{const col=DC[c.deg]||'#888',cx=fx(c.f),cy=ry(5-c.s),L=lbl(c);return (
+      {cells.map((c,i)=>{
+        const col=DC[c.deg]||'#888',cx=fx(c.f),cy=ry(5-c.s),L=lbl(c);
+        const isChordTone = !hlKey || hlKey.has(c.s + '_' + c.f);
+        const dim = hlKey && !isChordTone;
+        const pulse = hlKey && isChordTone && !reduced;
+        return (
         <g key={i} onClick={onTapNote?()=>onTapNote(dotMidi(c)):undefined} style={{cursor:onTapNote?'pointer':'default'}}>
           {onTapNote && <circle cx={cx} cy={cy} r={16} fill="transparent"/>}
-          <circle cx={cx} cy={cy} r={11} fill={col} stroke={isRoot(c)?'#fff':'none'} strokeWidth={isRoot(c)?2:0}/>
-          <text x={cx} y={cy+0.5} fontSize={L.length>2?7:9} fill={txtOn(col)} textAnchor="middle" dominantBaseline="central" fontWeight="bold">{L}</text>
+          <circle cx={cx} cy={cy} r={11} fill={col} stroke={isRoot(c)?'#fff':'none'} strokeWidth={isRoot(c)?2:0} opacity={dim?0.28:1}>
+            {pulse && <animate attributeName="r" values="11;13.5;11" dur="1.1s" repeatCount="indefinite"/>}
+          </circle>
+          <text x={cx} y={cy+0.5} fontSize={L.length>2?7:9} fill={txtOn(col)} textAnchor="middle" dominantBaseline="central" fontWeight="bold" opacity={dim?0.55:1}>{L}</text>
         </g>);})}
     </svg>
   );
@@ -435,17 +520,27 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
 }
 
 // ── SCALE MAP TAB ────────────────────────────────────────────────────────
+// The seven diatonic 7th chords of melodic minor, as the standard movable
+// grips from Zak's chord chart (root on the 5th string). `quality` is the
+// chord name; `tones` are its four notes, labelled in that MODE's own degree
+// vocabulary (the box is built on the chord root) so they match the diagram's
+// dots — hence vii's b3/b5 read as #9/#11 (the altered scale's spelling of the
+// same pitches). R first so the picker keeps it in the bass.
+// NOTE the chart draws ii with a b5, but melodic minor's ii is a plain m7 with
+// a natural 5 (the b5 note is out of key), so ii uses the correct natural 5.
 const CHORD_MAP = [
-  {degree:'i',    quality:'mMaj7', modeId:1},
-  {degree:'ii',   quality:'7sus(b9)', modeId:2},
-  {degree:'bIII', quality:'Maj7#5',modeId:3},
-  {degree:'IV',   quality:'7#11',  modeId:4},
-  {degree:'V',    quality:'7b13',  modeId:5},
-  {degree:'vi',   quality:'ø',     modeId:6},
-  {degree:'vii',  quality:'7alt',  modeId:7},
+  {degree:'i',    quality:'mMaj7', modeId:1, tones:['R','b3','5','7']},
+  {degree:'ii',   quality:'m7',    modeId:2, tones:['R','b3','5','b7']},
+  {degree:'bIII', quality:'Maj7#5',modeId:3, tones:['R','3','#5','7']},
+  {degree:'IV',   quality:'7',     modeId:4, tones:['R','3','5','b7']},
+  {degree:'V',    quality:'7',     modeId:5, tones:['R','3','5','b7']},
+  {degree:'vi',   quality:'ø',     modeId:6, tones:['R','b3','b5','b7']},
+  {degree:'vii',  quality:'ø',     modeId:7, tones:['R','#9','#11','b7']},
 ];
-function ScaleMapTab({ root, onPickMode }) {
+function ScaleMapTab({ root, labelMode, onPickMode }) {
   const [hl, setHl] = useState(null);
+  const playVoicing = cells => playMidis(cells.map(c => OPEN_MIDI[c.s] + c.f).sort((a,b)=>a-b), 0.09);
+  const toneLbl = c => labelMode === 'notes' ? NOTE_NAMES[pc(OPEN_MIDI[c.s] + c.f)] : c.deg;
   return (
     <div style={{ padding:'14px 12px' }}>
       <div style={{ fontSize:12, color:'#888', marginBottom:12, lineHeight:1.5 }}>
@@ -456,6 +551,13 @@ function ScaleMapTab({ root, onPickMode }) {
           const mode = MODES[entry.modeId-1];
           const cr = (root + MODE_OFFSETS[entry.modeId-1]) % 12;
           const isHl = hl===i;
+          // Boxes are keyed to the CHORD's own root (cr), not the parent
+          // melodic-minor key — e.g. entry ii's chord is rooted a whole step
+          // up from the parent, so its scale must be built on that root or the
+          // degree labels (and therefore every pitch) come out wrong.
+          const cv = isHl ? chartChordVoicing(mode.id, cr, entry.tones) : null;
+          const voicing = cv ? cv.voicing : null;
+          const vFrets = voicing && voicing.length ? voicing.map(c => c.f) : [];
           return (
             <div key={i} onClick={()=>setHl(isHl?null:i)} style={{ background:'#13121f', borderRadius:11, padding:'11px 13px', border:`1px solid ${isHl?mode.color:mode.color+'33'}`, cursor:'pointer' }}>
               <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
@@ -465,11 +567,20 @@ function ScaleMapTab({ root, onPickMode }) {
               </div>
               <div style={{ fontSize:11, color:'#888', marginTop:4 }}>{mode.name} · {mode.short}</div>
               {isHl && (
-                <div style={{ borderTop:'1px solid #2a2840', marginTop:8, paddingTop:8 }}>
+                <div style={{ borderTop:'1px solid #2a2840', marginTop:8, paddingTop:8 }} onClick={e=>e.stopPropagation()}>
                   <div style={{ fontSize:11, color:'#ffd93d', fontWeight:700, marginBottom:6 }}>{mode.jazzRule}</div>
-                  <button onClick={(e)=>{e.stopPropagation();onPickMode(mode.id);}} style={{ background:mode.color, color:txtOn(mode.color), border:'none', borderRadius:8, padding:'8px 14px', fontSize:12, fontWeight:700, cursor:'pointer', minHeight:38, touchAction:'manipulation' }}>
-                    See on neck →
-                  </button>
+                  <div style={{ fontSize:11, color:'#888', marginBottom:8 }}>
+                    One way to play {NOTE_NAMES[cr]}{entry.quality} ({voicing.map(toneLbl).join(' ')}), root on the A string, frets {Math.min(...vFrets)}–{Math.max(...vFrets)} — inside {NOTE_NAMES[cr]} {mode.name}
+                  </div>
+                  <div style={{ background:'#0f0e17', border:'1px solid #1a1928', borderRadius:10, padding:'8px 4px', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+                    <Fretboard cells={cv.display} root={cr} labelMode={labelMode} sc={1} onTapNote={m=>playMidis([m])} highlightCells={voicing} />
+                  </div>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:10 }}>
+                    <PlayBtn onClick={()=>playVoicing(voicing)} label="▶ Play chord" />
+                    <button onClick={()=>onPickMode(mode.id, cr)} style={{ background:mode.color, color:txtOn(mode.color), border:'none', borderRadius:8, padding:'8px 14px', fontSize:12, fontWeight:700, cursor:'pointer', minHeight:38, touchAction:'manipulation' }}>
+                      See on neck →
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -674,7 +785,7 @@ export default function App() {
     return () => { document.head.removeChild(style); window.removeEventListener('scroll', lock); };
   }, []);
 
-  const goMode = (id) => { setModeId(id); setTab('fretboard'); if(scrollRef.current) scrollRef.current.scrollTop=0; };
+  const goMode = (id, r) => { setModeId(id); if (r != null) setRoot(r); setTab('fretboard'); if(scrollRef.current) scrollRef.current.scrollTop=0; };
 
   const CW = 600; // centered content max-width (matches ChordTrainer)
 
@@ -713,7 +824,7 @@ export default function App() {
         <div style={{ maxWidth:CW, margin:'0 auto', paddingBottom:'max(80px,env(safe-area-inset-bottom))' }}>
           {tab==='modes' && <ModesTab root={root} labelMode={labelMode} onPickMode={goMode} />}
           {tab==='fretboard' && <FretboardTab root={root} labelMode={labelMode} modeId={modeId} setModeId={setModeId} />}
-          {tab==='map' && <ScaleMapTab root={root} onPickMode={goMode} />}
+          {tab==='map' && <ScaleMapTab root={root} labelMode={labelMode} onPickMode={goMode} />}
           {tab==='quiz' && <QuizTab />}
           {tab==='guide' && <GuideTab />}
         </div>
