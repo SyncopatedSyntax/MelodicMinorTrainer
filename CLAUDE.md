@@ -47,12 +47,23 @@ end user: Zak.
 
 ## Tabs
 - **Modes** 🎼 — browse all 7 modes by name/colour/intervals; tap one for its
-  spelling (degrees + note names), audio playback, jazz rule, example chord,
-  and "key rule" (see below).
+  spelling (degrees + note names), a root-to-root scale playback ("▶ Root →
+  Root", one octave, tonic to tonic — `mode.intervals` always starts at 0/'R'
+  so this needs no separate span logic), jazz rule, example chord, and "key
+  rule" (see below).
 - **Fretboard** 🎸 — the 5 CAGED positions, 7 three-notes-per-string
   patterns, and a full-neck view for the selected mode + root; tap dots to
   hear notes; switch positions/patterns via buttons below the diagram (no
-  sequenced "next position" flow — you jump around freely).
+  sequenced "next position" flow — you jump around freely). Two playback
+  modes per position/pattern: **"▶ Play this shape"** (every dot, lowest to
+  highest fret) and **"▶ Root → Root"** (`getRootSpans()` finds the shape's
+  root-note occurrences and plays just one octave, tonic to tonic, so the
+  mode's sound is unambiguous). A shape with 2 root occurrences gets one
+  Root→Root button; 3 occurrences (root doubles on the low-E/high-e strings)
+  gets two, labelled "(low)"/"(high)" for each octave span. Hidden in
+  Full-neck view (too many roots across 16 frets for a clean span). All
+  scale/shape playback uses a 0.22s note gap (slower, deliberate pace so
+  individual notes are distinguishable — not the same speed as a strum).
 - **Scale Map** 🗺️ — each of the 7 modes' typical chord across diatonic
   degrees i–vii with its jazz rule; "See on neck" jumps to that mode on
   Fretboard.

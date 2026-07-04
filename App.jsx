@@ -148,6 +148,16 @@ function getFullNeck(modeId, modeRoot, loF=0, hiF=15) {
   return cells;
 }
 
+// root-to-root spans within a shape: adjacent pairs of the root note's
+// occurrences (usually an octave apart), so "play root to root" can isolate
+// one clean pass of the mode's sound instead of the whole box's range.
+function getRootSpans(cells) {
+  const midis = [...new Set(cells.filter(c => c.deg === 'R').map(c => OPEN_MIDI[c.s] + c.f))].sort((a,b)=>a-b);
+  const spans = [];
+  for (let i = 0; i < midis.length - 1; i++) spans.push([midis[i], midis[i+1]]);
+  return spans;
+}
+
 // ── Audio (Web Audio pluck) ──────────────────────────────────────────────
 let _ctx = null, _unlocked = false;
 // ── iOS silent-switch bypass (toolbox standard, see root CLAUDE.md → Audio) ──
@@ -278,7 +288,7 @@ function ModesTab({ root, labelMode, onPickMode }) {
     const parentPc = getParentPc(mode.id, root);
     const spelling = mode.intervals.map(iv => ({ deg: mode.degMap[iv], note: NOTE_NAMES[pc(root + iv)] }));
     const rootMidi = 48 + root;
-    const playScale = () => playMidis([...mode.intervals.map(i=>rootMidi+i), rootMidi+12]);
+    const playScale = () => playMidis([...mode.intervals.map(i=>rootMidi+i), rootMidi+12], 0.22);
     const card = { background:'#13121f', border:'1px solid #1a1928', borderRadius:12, padding:'12px 13px', marginBottom:12 };
     const h = { fontSize:11, color:'#888', fontWeight:700, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:6 };
     return (
@@ -290,7 +300,7 @@ function ModesTab({ root, labelMode, onPickMode }) {
               <div style={{ width:13, height:13, borderRadius:'50%', background:mode.color }}/>
               <div style={{ fontSize:21, fontWeight:900, color:'#fff' }}>{NOTE_NAMES[root]} {mode.name}</div>
             </div>
-            <PlayBtn onClick={playScale} label="▶ Hear" />
+            <PlayBtn onClick={playScale} label="▶ Root → Root" />
           </div>
           <div style={{ fontSize:12, color:'#888', marginBottom:10, fontStyle:'italic' }}>{mode.short}</div>
           <div style={{ fontSize:13, lineHeight:1.8, marginBottom:4 }}>
@@ -358,7 +368,13 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
   const i = Math.min(idx, positions.length - 1);
   const cur = positions[i];
   const cells = fullNeck ? getFullNeck(modeId, root) : cur.cells;
-  const playPos = () => playMidis(cells.map(c => OPEN_MIDI[c.s] + c.f).sort((a,b)=>a-b), 0.10);
+  const playPos = () => playMidis(cells.map(c => OPEN_MIDI[c.s] + c.f).sort((a,b)=>a-b), 0.22);
+  const spans = useMemo(() => fullNeck ? [] : getRootSpans(cur.cells), [cur, fullNeck]);
+  const playRootSpan = ([lo, hi]) => {
+    const midis = cur.cells.map(c => OPEN_MIDI[c.s] + c.f).filter(m => m >= lo && m <= hi).sort((a,b)=>a-b);
+    playMidis(midis, 0.22);
+  };
+  const spanLabel = i => spans.length <= 1 ? '▶ Root → Root' : i === 0 ? '▶ Root → Root (low)' : i === spans.length - 1 ? '▶ Root → Root (high)' : `▶ Root → Root (${i+1})`;
 
   const segBtn = on => ({ flex:1, padding:'8px', background:on?mode.color:'transparent', color:on?txtOn(mode.color):'#aaa', border:`1px solid ${on?mode.color:'#2a2840'}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', minHeight:38, touchAction:'manipulation' });
   const navBtn = { background:'transparent', border:'1px solid #2a2840', color:'#ccc', borderRadius:8, padding:'9px 16px', fontSize:16, fontWeight:700, cursor:'pointer', minHeight:42, touchAction:'manipulation' };
@@ -405,8 +421,9 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
         </div>
       )}
 
-      <div style={{ display:'flex', justifyContent:'center', marginTop:12 }}>
+      <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:8, marginTop:12 }}>
         <PlayBtn onClick={playPos} label="▶ Play this shape" />
+        {spans.map((sp,si) => <PlayBtn key={si} onClick={()=>playRootSpan(sp)} label={spanLabel(si)} />)}
       </div>
 
       {/* degree legend */}
