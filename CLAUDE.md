@@ -51,7 +51,10 @@ end user: Zak.
   Root", one octave, tonic to tonic — `mode.intervals` always starts at 0/'R'
   so this needs no separate span logic), jazz rule, example chord, and "key
   rule" (see below).
-- **Fretboard** 🎸 — the 5 CAGED positions, 7 three-notes-per-string
+- **Fretboard** 🎸 — (string names: low E at the bottom, high e on top. The
+  `Fretboard` prints `STR_LABELS[r]` on row `5-r`; printing `STR_LABELS[5-r]`
+  there turned every name upside down against its dots until October 2026.)
+  The 5 CAGED positions, 7 three-notes-per-string
   patterns, and a full-neck view for the selected mode + root; tap dots to
   hear notes; switch positions/patterns via buttons below the diagram (no
   sequenced "next position" flow — you jump around freely). Two playback

@@ -334,7 +334,8 @@ function Fretboard({ cells, labelMode, root, sc=1, onTapNote, highlightCells }) 
       {Array.from({length:6},(_,r)=><line key={'s'+r} x1={padL} y1={ry(r)} x2={padL+nf*FW} y2={ry(r)} stroke="#2a2840" strokeWidth={1.4}/>)}
       {Array.from({length:nf+1},(_,j)=>{const f=lo+j;const nut=f===0;return <line key={'f'+j} x1={fxl(f)} y1={ry(0)} x2={fxl(f)} y2={ry(5)} stroke={nut?'#cccccc':'#2a2840'} strokeWidth={nut?3:1.4}/>;})}
       {[3,5,7,9,12,15].filter(f=>f>=lo&&f<=hi).map(f=><circle key={'m'+f} cx={fx(f)} cy={ry(2)+RH/2} r={2.6} fill="#2a2840"/>)}
-      {STR_LABELS.map((s,r)=><text key={'l'+r} x={6} y={ry(5-r)+3.5} fontSize={10} fill="#777" fontFamily="monospace">{STR_LABELS[5-r]}</text>)}
+      {/* String names: s sits on row 5-r (low E at the bottom), so print s itself — printing STR_LABELS[5-r] flipped every name against its dots */}
+      {STR_LABELS.map((s,r)=><text key={'l'+r} x={6} y={ry(5-r)+3.5} fontSize={10} fill="#777" fontFamily="monospace">{s}</text>)}
       {Array.from({length:nf},(_,j)=>{const f=lo+j;if(f===0)return null;return <text key={'n'+j} x={fx(f)} y={H-6} fontSize={9} fill="#666" textAnchor="middle" fontFamily="monospace">{f}</text>;})}
       {cells.map((c,i)=>{
         const col=DC[c.deg]||'#888',cx=fx(c.f),cy=ry(5-c.s),L=lbl(c);
@@ -607,11 +608,12 @@ function QuizTab() {
   const [qi, setQi] = useState(0);
   const [score, setScore] = useState(0);
   const [picked, setPicked] = useState(null);
-  const [shuffledChoices, setShuffledChoices] = useState([]);
   const q = phase==='playing' ? QUIZ_Q[order[qi]] : null;
+  // Shuffled once per question. A memo, not an effect: the effect painted the
+  // previous question's answers for a frame before swapping them.
+  const shuffledChoices = useMemo(() => (q ? shuffle(q.choices) : []), [q]);
 
   const start = () => { setOrder(shuffle(QUIZ_Q.map((_,i)=>i))); setQi(0); setScore(0); setPicked(null); setPhase('playing'); };
-  useEffect(()=>{ if(q) setShuffledChoices(shuffle(q.choices)); }, [qi, phase]);
 
   const pick = c => {
     if (picked!==null) return;
