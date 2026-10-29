@@ -21,7 +21,7 @@ end user: Zak.
 - Inline styles, no CSS files, `@fretworks/design` git dependency.
 - No separate theory file — all logic inline in `App.jsx`.
 
-## Theory — verified, but inherited rather than independently re-derived here
+## Theory — inherited from Altered Trainer, checked by `npm run verify`
 - `MODE_OFFSETS = [0,2,3,5,7,9,11]` — each mode's interval offset within the
   parent melodic-minor scale. `MODES` (7 objects) carries each mode's
   intervals, `degMap` (pitch-class → degree label), typical chord, colour,

@@ -1,0 +1,29 @@
+{
+  "id": "/melodic-minor/",
+  "name": "Melodic Minor Trainer",
+  "short_name": "Mel. Minor",
+  "description": "Master the seven melodic minor modes and where each one earns its keep across styles.",
+  "start_url": "/melodic-minor/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f0e17",
+  "theme_color": "#0f0e17",
+  "icons": [
+    {
+      "src": "/melodic-minor/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/melodic-minor/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/melodic-minor/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
