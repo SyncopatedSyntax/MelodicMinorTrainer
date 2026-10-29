@@ -30,9 +30,23 @@ end user: Zak.
   Trainer's `CAGED_MM`** (code comment: "verified from AlteredTrainer's
   CAGED_MM"). That original was transcribed dot-for-dot from a reference
   chart and checked (all 84 dots against C-melodic-minor pitch classes) —
-  see `../altered-trainer/CLAUDE.md`. **This copy has not been independently
-  re-verified in this repo** — it inherits Altered Trainer's correctness, it
-  doesn't re-prove it. There's no `verify.mjs` here.
+  see `../altered-trainer/CLAUDE.md`. `npm run verify` pins this copy to
+  **the same checksum** Altered's verify.mjs pins, so the two cannot drift,
+  and checks every dot is in C melodic minor.
+- **The five shapes are named the CAGED way**, like the Natural Minor
+  Trainer's: `CAGED_NAME = ['A','G','E','D','C']` (one per `CAGED_MM` index)
+  names each after the minor chord shape it is built around, and in any key
+  they climb the neck E, D, C, A, G (`SHAPE_IDS`). Two independent checks
+  agree in all 12 keys: each pattern holds exactly one open-minor grip (typed
+  into verify.mjs by hand) and it is its namesake, and each sits on the same
+  roots as the natural minor chart of that name. The name is attached
+  **before** the neck-order sort — they used to be "Position 1–5" numbered
+  after sorting, so the shape under a number changed with the key (the bug
+  Altered fixed). The Fretboard tab keeps the selected shape by name, so
+  changing key or mode keeps it; 3nps patterns keep their number.
+- Modes 2–7 use their **parent** melodic minor's shapes, so the label says
+  so: C Altered shows "E shape (C# melodic minor)", as the scale trainers
+  show "A shape (F major)".
 - Generated at runtime (not hardcoded): `getParentPc()` finds the parent
   melodic-minor root for a given mode + mode-root; `getBoxPositions()`
   transposes the 5 CAGED patterns to any root and relabels each dot with the
@@ -115,7 +129,24 @@ playing" once quiet (root `CLAUDE.md → Audio`).
   toolbox's SM-2 pattern with an `mm_*` key prefix.
 - No editor, no multi-page Vite setup — single `index.html` + one component.
 
+## Settings are read synchronously
+
+`mm_root`, `mm_label` and `mm_mode` are read in the `useState` initialisers.
+They used to load in an async effect, which yielded at its first `await`;
+the save effects then wrote the defaults and the loader read those back, so
+Degrees/Notes and the mode were lost on every reload (only the key, read
+before the yield, survived) — the trap Altered Trainer's CLAUDE.md
+describes. Do not move them back into an async loader.
+
+The caption over the key buttons follows the tab, because the key means
+different things: the mode's own root on Fretboard ("Root · C Altered
+Scale"), the root every mode starts on in Modes ("Root · C"), the parent
+key on Scale Map ("Key · C melodic minor"). It used to read "C melodic
+minor" everywhere, including over C Altered.
+
 ## Before shipping any change
-- `npm run build` must pass.
+- `npm run verify` and `npm run build` must pass. verify.mjs lifts the data
+  and helpers out of App.jsx by name and checks the modes, the shapes and
+  their names, the 3nps patterns and the Scale Map grips in every key.
 - Any change to `MODES`, `MODE_OFFSETS`, or `CAGED_MM`: re-verify against
   Altered Trainer's source of truth (see Theory above) before shipping.

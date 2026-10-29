@@ -5,7 +5,7 @@ import { AppHeader, TabBar } from "@fretworks/design";
 //  MelodicMinor Trainer — the 7 modes of melodic minor, their shapes on the
 //  neck, the chords they fit, and how to drill them.
 //  Part of the Jazz Guitar Toolbox. Single-file React PWA.
-//  Position shapes ported (verified) from AlteredTrainer's CAGED_MM data.
+//  CAGED shapes ported (verified) from AlteredTrainer's CAGED_MM data.
 // ════════════════════════════════════════════════════════════════════════
 
 // ── Degree colours (shared toolbox palette) ─────────────────────────────
@@ -97,20 +97,30 @@ function transposeShape(pat, parentPc) {
   return cells;
 }
 
+// Each CAGED_MM pattern is named after the minor chord shape it is built
+// around, as the Natural Minor Trainer names its charts: CAGED_MM[0] holds an
+// Am grip, [1] Gm, [2] Em, [3] Dm, [4] Cm. Two independent checks agree in all
+// 12 keys — each pattern contains exactly that one open-minor grip, and it sits
+// on the same roots as the natural minor chart of the same name. The name is
+// attached BEFORE the neck-order sort below, so it travels with the shape when
+// the key changes (sorting first and numbering after, "Position 1–5", silently
+// swapped the shape under a label — the bug Altered Trainer fixed).
+const CAGED_NAME = ['A', 'G', 'E', 'D', 'C'];
+const SHAPE_IDS = ['E', 'D', 'C', 'A', 'G'];   // the order they climb the neck
+
 // 5 box positions for a given mode + root, ordered low->high, degrees relabeled
 function getBoxPositions(modeId, modeRoot) {
   const parentPc = getParentPc(modeId, modeRoot);
   const mode = MODES[modeId-1];
-  const list = CAGED_MM.map(pat => {
+  const list = CAGED_MM.map((pat, idx) => {
     const cells = transposeShape(pat, parentPc).map(c => {
       const semi = (pc(OPEN_MIDI[c.s] + c.f) - modeRoot + 12) % 12;
       return { s: c.s, f: c.f, deg: mode.degMap[semi] };
     });
     const fs = cells.map(c => c.f);
-    return { cells, lo: Math.min(...fs), hi: Math.max(...fs) };
+    return { cells, lo: Math.min(...fs), hi: Math.max(...fs), id: CAGED_NAME[idx], name: `${CAGED_NAME[idx]} shape` };
   });
-  list.sort((a,b) => a.lo - b.lo);
-  return list.map((p,i) => ({ ...p, name: `Position ${i+1}` }));
+  return list.sort((a,b) => a.lo - b.lo);
 }
 
 // 7 three-notes-per-string patterns for a given mode + root
@@ -443,7 +453,8 @@ function ModesTab({ root, labelMode, onPickMode }) {
 // ── FRETBOARD TAB (Box / 3NPS toggle) ───────────────────────────────────
 function FretboardTab({ root, labelMode, modeId, setModeId }) {
   const [system, setSystem] = useState('box');   // 'box' | 'tnps'
-  const [idx, setIdx] = useState(0);
+  const [shapeId, setShapeId] = useState(SHAPE_IDS[0]);   // box: by name, so a key change keeps the shape
+  const [tn, setTn] = useState(0);                         // 3nps: by pattern number
   const [fullNeck, setFullNeck] = useState(false);
   const mode = MODES[modeId-1];
 
@@ -451,8 +462,11 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
     () => system === 'box' ? getBoxPositions(modeId, root) : getTnpsPositions(modeId, root),
     [system, modeId, root]
   );
-  const i = Math.min(idx, positions.length - 1);
+  const i = system === 'box' ? Math.max(0, positions.findIndex(p => p.id === shapeId)) : Math.min(tn, positions.length - 1);
   const cur = positions[i];
+  const step = d => { const n = (i + d + positions.length) % positions.length; if (system === 'box') setShapeId(positions[n].id); else setTn(n); };
+  // A mode's shapes are its parent melodic minor's (getBoxPositions), so name the parent.
+  const parentName = modeId === 1 ? '' : `${NOTE_NAMES[getParentPc(modeId, root)]} melodic minor`;
   const cells = fullNeck ? getFullNeck(modeId, root) : cur.cells;
   const playPos = () => playMidis(cells.map(c => OPEN_MIDI[c.s] + c.f).sort((a,b)=>a-b), 0.22);
   const spans = useMemo(() => fullNeck ? [] : getRootSpans(cur.cells), [cur, fullNeck]);
@@ -470,7 +484,7 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
       {/* mode selector */}
       <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginBottom:10 }}>
         {MODES.map(m=>(
-          <button key={m.id} onClick={()=>{setModeId(m.id);setIdx(0);}} style={{ padding:'5px 10px', borderRadius:16, cursor:'pointer', fontSize:10, fontWeight:700, border:`1px solid ${modeId===m.id?m.color:m.color+'44'}`, background:modeId===m.id?m.color+'22':'transparent', color:modeId===m.id?m.color:'#777', minHeight:30, touchAction:'manipulation' }}>{m.id}. {m.short}</button>
+          <button key={m.id} onClick={()=>setModeId(m.id)} style={{ padding:'5px 10px', borderRadius:16, cursor:'pointer', fontSize:10, fontWeight:700, border:`1px solid ${modeId===m.id?m.color:m.color+'44'}`, background:modeId===m.id?m.color+'22':'transparent', color:modeId===m.id?m.color:'#777', minHeight:30, touchAction:'manipulation' }}>{m.id}. {m.short}</button>
         ))}
       </div>
 
@@ -482,14 +496,15 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
 
       {/* system toggle */}
       <div style={{ display:'flex', gap:6, marginBottom:10 }}>
-        <button onClick={()=>{setSystem('box');setIdx(0);}} style={segBtn(system==='box')}>5 Positions</button>
-        <button onClick={()=>{setSystem('tnps');setIdx(0);}} style={segBtn(system==='tnps')}>3 notes/string</button>
+        <button onClick={()=>setSystem('box')} style={segBtn(system==='box')}>5 Shapes</button>
+        <button onClick={()=>setSystem('tnps')} style={segBtn(system==='tnps')}>3 per string</button>
       </div>
 
       {/* position header + full-neck toggle */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:6 }}>
         <div style={{ fontSize:13, fontWeight:800, color:'#fff' }}>
           {fullNeck ? 'Full neck' : cur.name}
+          {!fullNeck && system === 'box' && parentName && <span style={{ color:'#bbb', fontWeight:700 }}> ({parentName})</span>}
           {!fullNeck && <span style={{ color:'#888', fontWeight:600, fontSize:11 }}> · frets {cur.lo}–{cur.hi}</span>}
         </div>
         <button onClick={()=>setFullNeck(f=>!f)} style={{ background:fullNeck?'#74b9ff':'transparent', color:fullNeck?'#111':'#74b9ff', border:'1px solid #74b9ff55', borderRadius:7, padding:'6px 11px', fontSize:11, fontWeight:700, cursor:'pointer', minHeight:34, touchAction:'manipulation' }}>{fullNeck?'◧ Full neck':'◫ Full neck'}</button>
@@ -501,9 +516,9 @@ function FretboardTab({ root, labelMode, modeId, setModeId }) {
 
       {!fullNeck && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginTop:10 }}>
-          <button onClick={()=>setIdx((i - 1 + positions.length) % positions.length)} style={navBtn}>‹</button>
-          <div style={{ fontSize:12, color:'#888', minWidth:64, textAlign:'center' }}>{i+1} / {positions.length}</div>
-          <button onClick={()=>setIdx((i + 1) % positions.length)} style={navBtn}>›</button>
+          <button onClick={()=>step(-1)} style={navBtn}>‹</button>
+          <div style={{ fontSize:12, color:'#888', minWidth:64, textAlign:'center' }}>{i+1} of {positions.length} up the neck</div>
+          <button onClick={()=>step(1)} style={navBtn}>›</button>
         </div>
       )}
 
@@ -678,7 +693,7 @@ function GuideTab() {
     {icon:'🎵',title:'Lydian Dominant & Tritone Subs',color:'#00b894',body:`Lydian Dominant (mode 4) is a dom7 with a #11.\n\nOver V7#11 → mel. minor a P4 below chord root:\nG7#11 → D mel. minor\n\nFor tritone subs (bII7):\nDb7 (sub for G7) → Ab mel. minor`},
     {icon:'🌙',title:'Minor ii–V–i in Full',color:'#4ecdc4',body:`Three modes chain through a minor ii-V-i:\n\n1. iiø → Locrian #2 (minor 3rd ABOVE chord root)\n   Bø → D mel. minor\n2. V7alt → Altered (half step above)\n   E7alt → F mel. minor\n3. i(Maj7) → Melodic Minor (same root)\n   AmMaj7 → A mel. minor`},
     {icon:'🗝️',title:'One Key, Seven Sounds',color:'#a29bfe',body:`C melodic minor unlocks 7 chord-scale pairs:\n\nMode 1 → CmMaj7    Melodic Minor\nMode 2 → D7sus(b9) Dorian b2\nMode 3 → EbMaj7#5  Lydian Augmented\nMode 4 → F7#11     Lydian Dominant\nMode 5 → G7b13     Mixolydian b6\nMode 6 → Aø        Locrian #2\nMode 7 → B7alt     Altered Scale`},
-    {icon:'🎸',title:'Positions vs 3 Notes/String',color:'#74b9ff',body:`The Fretboard tab offers two systems:\n\n5 Positions — compact CAGED boxes, ~5 frets each, great for chord-tone targeting and comping.\n\n3 Notes/String — 7 patterns of three notes per string, ideal for fast scalar runs and legato. Each pattern starts on a different scale degree.\n\nBoth show the same scale; switch freely to learn the neck from both angles.`},
+    {icon:'🎸',title:'5 Shapes vs 3 Per String',color:'#74b9ff',body:`The Fretboard tab offers two systems:\n\n5 Shapes — compact CAGED boxes, ~5 frets each, great for chord-tone targeting and comping. Each is named after the minor chord shape it is built around, as in the Natural Minor Trainer: E shape, D shape, C shape, A shape and G shape. In any key they climb the neck in that order and join end to end, so the arrows may start on any of them. A shape keeps its name in every key. For the other modes the shapes are the parent melodic minor's, so C Altered shows "E shape (C# melodic minor)".\n\n3 Notes/String — 7 patterns of three notes per string, ideal for fast scalar runs and legato. Each pattern starts on a different scale degree.\n\nBoth show the same scale; switch freely to learn the neck from both angles.`},
     {icon:'🎨',title:'Degree Colour Guide',color:'#ffd93d',body:`● Red    R    Root\n● Yellow 3    Major 3rd\n● Orange b3   Minor 3rd\n● Grey   5    Perfect 5th\n● Pink   7    Major 7th\n● Peach  b7   Dominant 7th\n● Green  9,13 Safe extensions\n● Cyan   #11  Lydian brightness\n● Purple b9,#9 Altered tensions`},
   ];
   return (
@@ -737,18 +752,16 @@ function BannerStack() {
 //  APP
 // ════════════════════════════════════════════════════════════════════════
 export default function App() {
-  const [root, setRoot] = useState(0);          // C default
-  const [labelMode, setLabelMode] = useState('degrees');
+  // Read synchronously, in the initialisers. The old async loader yielded at
+  // its first await, the save effects below then wrote the defaults, and the
+  // loader read those back: Degrees/Notes and the mode were lost on every
+  // reload (only the key, read before the yield, survived).
+  const saved = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const [root, setRoot] = useState(() => { const n = parseInt(saved('mm_root'), 10); return n >= 0 && n < 12 ? n : 0; });   // C default
+  const [labelMode, setLabelMode] = useState(() => saved('mm_label') === 'notes' ? 'notes' : 'degrees');
   const [tab, setTab] = useState('fretboard');
-  const [modeId, setModeId] = useState(1);
+  const [modeId, setModeId] = useState(() => { const n = parseInt(saved('mm_mode'), 10); return n >= 1 && n <= 7 ? n : 1; });
   const scrollRef = useRef(null);
-
-  // load prefs
-  useEffect(() => { (async () => {
-    try { const r = await store.get('mm_root'); if (r) setRoot(parseInt(r.value,10)); } catch(e){}
-    try { const l = await store.get('mm_label'); if (l) setLabelMode(l.value); } catch(e){}
-    try { const m = await store.get('mm_mode'); if (m) setModeId(parseInt(m.value,10)); } catch(e){}
-  })(); }, []);
   useEffect(() => { store.set('mm_root', String(root)); }, [root]);
   useEffect(() => { store.set('mm_label', labelMode); }, [labelMode]);
   useEffect(() => { store.set('mm_mode', String(modeId)); }, [modeId]);
@@ -812,7 +825,10 @@ export default function App() {
       {/* root selector — below the tabs, full-bleed border, centered inner */}
       <div style={{ borderBottom:'1px solid #1a1928' }}>
        <div style={{ padding:'8px 10px', maxWidth:CW, margin:'0 auto' }}>
-        <div style={{ fontSize:9, color:'#666', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:6 }}>Root · <span style={{color:'#74b9ff'}}>{NOTE_NAMES[root]} melodic minor</span></div>
+        {/* What the key means differs by tab: the mode's own root on Fretboard,
+            the root every mode starts on in Modes, the parent key on Scale Map.
+            It always read "C melodic minor", even over C Altered. */}
+        <div style={{ fontSize:9, color:'#666', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:6 }}>{tab==='map' ? 'Key' : 'Root'} · <span style={{color:'#74b9ff'}}>{NOTE_NAMES[root]}{tab==='map' ? ' melodic minor' : tab==='fretboard' ? ` ${MODES[modeId-1].name}` : ''}</span></div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
           {NOTE_NAMES.map((n,i)=>(
             <button key={i} onClick={()=>setRoot(i)} style={{ padding:'7px 0', borderRadius:6, fontSize:11, fontWeight:800, cursor:'pointer', minHeight:34, border:`1px solid ${root===i?'#74b9ff':'#2a2840'}`, background:root===i?'#74b9ff':'transparent', color:root===i?'#06283f':'#999', touchAction:'manipulation' }}>{n}</button>
